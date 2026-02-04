@@ -2,12 +2,42 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import Image from 'next/image'
+
+type Status = 'idle' | 'loading' | 'success' | 'pending' | 'rejected' | 'link_sent' | 'error'
 
 export default function Home() {
   const [email, setEmail] = useState('')
-  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error' | 'exists'>('idle')
+  const [status, setStatus] = useState<Status>('idle')
   const [errorMessage, setErrorMessage] = useState('')
+
+  const checkStatusAndResendLink = async (emailToCheck: string) => {
+    try {
+      const res = await fetch('/api/auth/resend-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: emailToCheck })
+      })
+
+      const data = await res.json()
+
+      if (data.status === 'sent') {
+        setStatus('link_sent')
+      } else if (data.status === 'pending') {
+        setStatus('pending')
+      } else if (data.status === 'rejected') {
+        setStatus('rejected')
+      } else if (data.status === 'error') {
+        setStatus('error')
+        setErrorMessage(data.message)
+      } else {
+        setStatus('error')
+        setErrorMessage('Une erreur inattendue est survenue')
+      }
+    } catch {
+      setStatus('error')
+      setErrorMessage('Erreur de connexion au serveur')
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -16,18 +46,21 @@ export default function Home() {
 
     const supabase = createClient()
 
+    // D'abord essayer d'insérer une nouvelle demande
     const { error } = await supabase
       .from('access_requests')
       .insert({ email, status: 'pending' })
 
     if (error) {
       if (error.code === '23505') {
-        setStatus('exists')
+        // L'email existe déjà, vérifier le statut et potentiellement renvoyer un lien
+        await checkStatusAndResendLink(email)
+        return
       } else {
         setStatus('error')
         setErrorMessage(error.message)
+        return
       }
-      return
     }
 
     setStatus('success')
@@ -120,25 +153,55 @@ export default function Home() {
             <span className="text-sm text-[#5A6B7A]">+1000 membres actifs</span>
           </div>
 
+          {/* Nouvelle demande envoyée */}
           {status === 'success' && (
             <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-xl">
               <p className="text-green-800 text-center text-sm font-medium">
                 ✅ Demande envoyée !
               </p>
               <p className="text-green-700 text-center text-xs mt-2">
-                Attendez d'être validé par un admin de la communauté pour recevoir votre lien d'accès aux outils.
+                Attendez d&apos;être validé par un admin de la communauté pour recevoir votre lien d&apos;accès aux outils.
               </p>
             </div>
           )}
 
-          {status === 'exists' && (
+          {/* Magic link envoyé (utilisateur déjà approuvé) */}
+          {status === 'link_sent' && (
+            <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-xl">
+              <p className="text-green-800 text-center text-sm font-medium">
+                ✅ Lien de connexion envoyé !
+              </p>
+              <p className="text-green-700 text-center text-xs mt-2">
+                Vérifiez votre boîte mail pour accéder aux outils.
+              </p>
+            </div>
+          )}
+
+          {/* Demande en attente */}
+          {status === 'pending' && (
             <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
-              <p className="text-yellow-800 text-center text-sm">
-                ⚠️ Cet email a déjà été enregistré. Vérifiez vos emails ou patientez.
+              <p className="text-yellow-800 text-center text-sm font-medium">
+                ⏳ Demande en attente
+              </p>
+              <p className="text-yellow-700 text-center text-xs mt-2">
+                Votre demande est en cours de validation par un admin. Vous recevrez un email dès qu&apos;elle sera approuvée.
               </p>
             </div>
           )}
 
+          {/* Demande refusée */}
+          {status === 'rejected' && (
+            <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-xl">
+              <p className="text-red-800 text-center text-sm font-medium">
+                ❌ Demande refusée
+              </p>
+              <p className="text-red-700 text-center text-xs mt-2">
+                Votre demande d&apos;accès a été refusée. Contactez un admin si vous pensez qu&apos;il s&apos;agit d&apos;une erreur.
+              </p>
+            </div>
+          )}
+
+          {/* Erreur */}
           {status === 'error' && (
             <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-xl">
               <p className="text-red-800 text-center text-sm">
