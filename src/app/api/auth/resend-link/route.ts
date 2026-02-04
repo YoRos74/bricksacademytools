@@ -59,10 +59,10 @@ export async function POST(request: Request) {
   })
 
   if (authError) {
-    console.error('Error sending magic link:', authError)
+    console.error('Error sending magic link:', authError.message, authError)
     return NextResponse.json({
       status: 'error',
-      message: 'Erreur lors de l\'envoi du lien'
+      message: `Erreur: ${authError.message}`
     }, { status: 500 })
   }
 
