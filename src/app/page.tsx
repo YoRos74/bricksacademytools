@@ -122,8 +122,11 @@ export default function Home() {
 
           {status === 'success' && (
             <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-xl">
-              <p className="text-green-800 text-center text-sm">
-                ✅ Demande envoyée ! Vous recevrez un email dès que votre accès sera validé.
+              <p className="text-green-800 text-center text-sm font-medium">
+                ✅ Demande envoyée !
+              </p>
+              <p className="text-green-700 text-center text-xs mt-2">
+                Attendez d'être validé par un admin de la communauté pour recevoir votre lien d'accès aux outils.
               </p>
             </div>
           )}
